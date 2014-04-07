@@ -1,228 +1,163 @@
-! ***********************************************************************
-!
-!   Copyright (C) 2011  Bill Paxton
-!
-!   This file is part of MESA.
-!
-!   MESA is free software; you can redistribute it and/or modify
-!   it under the terms of the GNU General Library Public License as published
-!   by the Free Software Foundation; either version 2 of the License, or
-!   (at your option) any later version.
-!
-!   MESA is distributed in the hope that it will be useful, 
-!   but WITHOUT ANY WARRANTY; without even the implied warranty of
-!   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!   GNU Library General Public License for more details.
-!
-!   You should have received a copy of the GNU Library General Public License
-!   along with this software; if not, write to the Free Software
-!   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-!
-! ***********************************************************************
+program mesa_micro
 
-      program sample_eos
-      use eos_def
-      use eos_lib
-      use chem_def
-      use chem_lib
-      use const_lib
-      use crlibm_lib
+  ! provide convenient access to MESA microphysics
 
-      implicit none
+  use crlibm_lib
 
-      real(dp) :: X, Z, Y, abar, zbar, z2bar, ye
-      integer, parameter :: species = 7
-      integer, parameter :: h1=1, he4=2, c12=3, n14=4, o16=5, ne20=6, mg24=7
-      integer, pointer, dimension(:) :: net_iso, chem_id
-      real(dp) :: xa(species)
-      character (len=256) :: my_mesa_dir
+  use const_def
+  use const_lib
 
+  use chem_def
+  use chem_lib
 
-      call Sample
-      
-      contains
-      
-      subroutine Sample
-         
-         integer :: handle
-         real(dp) :: Rho, T, Pgas, log10Rho, log10T
-         real(dp) :: dlnRho_dlnPgas_const_T, dlnRho_dlnT_const_Pgas, d_dlnRho_const_T, d_dlnT_const_Rho
-         real(dp), dimension(num_eos_basic_results) :: res, d_dlnd, d_dlnT, d_dabar, d_dzbar
-         integer :: ierr
-         
-         ierr = 0
-         
-         call crlibm_init
+  use eos_def
+  use eos_lib
 
-         my_mesa_dir = ''
-         call const_init(my_mesa_dir,ierr)     
-      	if (ierr /= 0) then
-      	   write(*,*) 'const_init failed'
-      	   stop 1
-      	end if        
-         
-         call chem_init('isotopes.data', ierr)
-         if (ierr /= 0) then
-            write(*,*) 'failed in chem_init'
-            stop 1
-         end if
+  use kap_def
+  use kap_lib
 
-         ! allocate and initialize the eos tables
-         call Setup_eos(handle)
-         
-         allocate(net_iso(num_chem_isos), chem_id(species), stat=ierr)
-         if (ierr /= 0) stop 'allocate failed'
-         X = 0.70
-         Z = 0.02
-         call Init_Composition
-         
-         Rho = 1.3519d2
-         log10T = 8.15
-         T = exp10_cr(log10T)
-         
-         ! get a set of results for given temperature and density
-         call eosDT_get( &
-               handle, Z, X, abar, zbar,  &
-               species, chem_id, net_iso, xa, &
-               Rho, log10_cr(Rho), T, log10T,  &
-               res, d_dlnd, d_dlnT, d_dabar, d_dzbar, ierr)
-         
-        
- 1       format(a20,3x,e20.12)
+  use net_def
+  use net_lib
 
-         Pgas = exp_cr(res(i_lnPgas))
+  use neu_def
+  use neu_lib
 
-         ! the indices for the results are defined in eos_def.f
-         write(*,*)
-         write(*,1) 'temperature', T
-         write(*,1) 'density', Rho
-         write(*,1) 'logT', log10T
-         write(*,1) 'logRho', log10_cr(Rho)
-         write(*,*)
-         write(*,1) 'Z', Z
-         write(*,1) 'X', X
-         write(*,1) 'abar', abar
-         write(*,1) 'zbar', zbar
-         write(*,*)
-         write(*,1) 'Pgas', Pgas
-         write(*,1) 'logPgas', res(i_lnPgas)/ln10
-         write(*,1) 'grad_ad', res(i_grad_ad)
-         write(*,1) 'c_P', res(i_Cp)
-         write(*,*)
+  use rates_def
+  use rates_lib
 
-         call eosPT_get(  &
-               handle, Z, X, abar, zbar,   &
-               species, chem_id, net_iso, xa, &
-               Pgas, log10_cr(Pgas), T, log10_cr(T),  &
-               Rho, log10Rho, dlnRho_dlnPgas_const_T, dlnRho_dlnT_const_Pgas,  &
-               res, d_dlnd, d_dlnT, d_dabar, d_dzbar, ierr)
-      
-         ! the indices for the results are defined in eos_def.f
-         write(*,*)
-         write(*,1) 'temperature', T
-         write(*,1) 'Pgas', Pgas
-         write(*,1) 'logT', log10(T)
-         write(*,1) 'logPgas', res(i_lnPgas)/ln10
-         write(*,*)
-         write(*,1) 'Z', Z
-         write(*,1) 'X', X
-         write(*,1) 'abar', abar
-         write(*,1) 'zbar', zbar
-         write(*,*)
-         write(*,1) 'density', Rho
-         write(*,1) 'logRho', log10Rho
-         write(*,1) 'grad_ad', res(i_grad_ad)
-         write(*,1) 'c_P', res(i_Cp)
-         write(*,*)
+  use interp_1d_def
+  use interp_1d_lib
 
-         ! deallocate the eos tables
-         call Shutdown_eos(handle)
-         
-         deallocate(net_iso, chem_id)
-         
-         if (ierr /= 0) then
-            write(*,*) 'bad result from eos_get'
-            stop 1
-         end if
+  use micro_support
 
-      end subroutine Sample
-      
+  implicit none
 
-      subroutine Setup_eos(handle)
-         ! allocate and load the eos tables
-         use eos_def
-         use eos_lib
-         integer, intent(out) :: handle
+  ! variables needed for set up
+  integer :: eos_handle, kap_handle, net_handle
+  type (Net_General_Info), pointer  :: g
+  integer, pointer, dimension(:) :: net_iso, chem_id
 
-         character (len=256) :: eos_file_prefix
-         integer :: ierr
-         logical, parameter :: use_cache = .true.
+  ! variables needed for composition
+  real(dp) :: X, Z, Y, abar, zbar, z2bar, ye
+  real(dp) :: frac, sumx, xh, xhe, mass_correction
+  real(dp), dimension(:), pointer :: xa(:), dabar_dx(:), dzbar_dx(:), dmc_dx(:)
 
-         eos_file_prefix = 'mesa'
+  ! variables needed for eos
+  real(dp) :: Rho, T, log10Rho, log10T
+  real(dp), dimension(num_eos_basic_results) :: res, d_dlnd, d_dlnT, d_dabar, d_dzbar
 
-         call eos_init(eos_file_prefix, '', '', use_cache, ierr)
-         if (ierr /= 0) then
-            write(*,*) 'eos_init failed in Setup_eos'
-            stop 1
-         end if
-         
-         write(*,*) 'loading eos tables'
-         
-         handle = alloc_eos_handle(ierr)
-         if (ierr /= 0) then
-            write(*,*) 'failed trying to allocate eos handle'
-            stop 1
-         end if
-      
-      end subroutine Setup_eos
-      
-      
-      subroutine Shutdown_eos(handle)
-         use eos_def
-         use eos_lib
-         integer, intent(in) :: handle
-         call free_eos_handle(handle)
-         call eos_shutdown
-      end subroutine Shutdown_eos
+  ! variables needed for neu
+  real(dp) :: log10_Tlim = 7.5
+  logical :: flags(num_neu_types)  = .true.
+  real(dp) :: loss(num_neu_rvs)
+  real(dp) :: sources(num_neu_types, num_neu_rvs)
 
+  ! variables needed for net
+  character(len=256) :: net_name = "approx21.net"
 
-      subroutine Init_Composition
-         use chem_lib
+  type (Net_Info), target :: net_info_target
+  type (Net_Info), pointer :: net_info_pointer
 
-         real(dp), parameter :: Zfrac_C = 0.173312d0
-         real(dp), parameter :: Zfrac_N = 0.053177d0
-         real(dp), parameter :: Zfrac_O = 0.482398d0
-         real(dp), parameter :: Zfrac_Ne = 0.098675d0
-         
-         real(dp) :: frac, dabar_dx(species), dzbar_dx(species),  &
-               sumx, xh, xhe, mass_correction, dmc_dx(species)
-         
-         net_iso(:) = 0
-         
-         chem_id(h1) = ih1; net_iso(ih1) = h1
-         chem_id(he4) = ihe4; net_iso(ihe4) = he4
-         chem_id(c12) = ic12; net_iso(ic12) = c12
-         chem_id(n14) = in14; net_iso(in14) = n14
-         chem_id(o16) = io16; net_iso(io16) = o16
-         chem_id(ne20) = ine20; net_iso(ine20) = ne20
-         chem_id(mg24) = img24; net_iso(img24) = mg24
-         
-         Y = 1 - (X + Z)
-               
-         xa(h1) = X
-         xa(he4) = Y
-         xa(c12) = Z * Zfrac_C
-         xa(n14) = Z * Zfrac_N
-         xa(o16) = Z * Zfrac_O
-         xa(ne20) = Z * Zfrac_Ne
-         xa(species) = 1 - sum(xa(1:species-1))
-         
-         call composition_info( &
-               species, chem_id, xa, xh, xhe, abar, zbar, z2bar, ye,  &
-               mass_correction, sumx, dabar_dx, dzbar_dx, dmc_dx)
-         
-      end subroutine Init_Composition
+  integer :: lwork
+  real(dp), dimension(:), pointer :: eps_nuc_categories
+  real(dp), pointer :: work(:), rate_factors(:)
 
+  real(dp) :: weak_rate_factor, eta, d_eta_dlnT, d_eta_dlnRho, eps_neu_total
+  real(dp), dimension(:), pointer ::  &
+       d_eps_nuc_dx, dxdt, d_dxdt_dRho, d_dxdt_dT
+  real(dp), pointer :: d_dxdt_dx(:, :)
 
-      end   
+  real(dp) :: eps_nuc, d_eps_nuc_dRho, d_eps_nuc_dT
 
+  real(dp), parameter :: theta_e_for_graboske_et_al = 1 ! for nondegenerate
+  real(dp) :: theta_e = theta_e_for_graboske_et_al
+
+  integer :: screening_mode = extended_screening
+
+  ! for error handling
+  integer :: ierr
+
+  ierr = 0
+
+  ! set up clrlibm
+  call crlibm_init
+
+  ! set up const
+  call const_init('',ierr)
+  if (ierr /= 0) then
+     write(*,*) 'const_init failed'
+     stop 1
+  end if
+
+  ! set up chem
+  call chem_init('isotopes.data', ierr)
+  if (ierr /= 0) then
+     write(*,*) 'chem_init failed'
+     stop 1
+  end if
+
+  ! set up rates
+  call rates_init('reactions.list', '', '', ierr)
+  if (ierr /= 0) then
+     write(*,*) 'rates_init failed'
+     stop 1
+  end if
+
+  ! set up net
+  call net_init(ierr)
+  if (ierr /= 0) then
+     write(*,*) 'net_init failed'
+     stop 1
+  end if
+
+  ! set up eos
+  call setup_eos(eos_handle)
+
+  ! set up kap
+  call setup_kap(kap_handle)
+
+  ! set up net
+  call setup_net(net_name, net_handle, g, chem_id, net_iso)
+
+  ! now that we know the net, allocate for other things
+  allocate(xa(g% num_isos), dabar_dx(g% num_isos), dzbar_dx(g% num_isos), dmc_dx(g% num_isos))
+
+  lwork = net_work_size(net_handle, ierr)
+  net_info_pointer => net_info_target
+
+  allocate(work(lwork),  &
+       rate_factors(g% num_reactions), &
+       eps_nuc_categories(num_categories),  &
+       stat=ierr)
+  if (ierr /= 0) stop 1
+
+  rate_factors(:) = 1
+  weak_rate_factor = 1
+
+  allocate( &
+       d_eps_nuc_dx(g% num_isos),  &
+       dxdt(g% num_isos), d_dxdt_dRho(g% num_isos), d_dxdt_dT(g% num_isos), &
+       d_dxdt_dx(g% num_isos, g% num_isos))
+  if (ierr /= 0) stop 1
+
+  ! call your special function
+  call do_micro
+
+  ! tear down rates
+  call rates_shutdown
+
+  ! tear down eos
+  call shutdown_eos(eos_handle)
+
+  ! tear down kap
+  call shutdown_kap(kap_handle)
+
+  ! tear down kap
+  call shutdown_net(net_handle)
+
+contains
+
+  !  include 'sample.f'
+  include 'ignition-CO.f'
+
+end program mesa_micro

@@ -9,7 +9,7 @@ include $(MESA_DIR)/utils/makefile_header
 # STEP 2: build the test
 
 MICRO = micro
-MICRO_OBJS = micro.o
+MICRO_OBJS =  micro_support.o micro.o
 
 all: $(MICRO)
 
@@ -24,7 +24,7 @@ $(MICRO) : $(MICRO_OBJS)
 MY_FC_FLAGS = $(FCfree)
 
 %.o: %.f
-	$(FC) $(FCbasic) $(MY_FC_FLAGS) -I$(MESA_INCLUDE_DIR) -c $<
+	$(FC) $(FCchecks) $(MY_FC_FLAGS) -I$(MESA_INCLUDE_DIR) -c $<
 
 clean:
 	-@rm -f *.o *.mod $(MICRO)
