@@ -1,0 +1,17 @@
+* mesa-micro
+** Purpose
+This is some boiler-plate code to do simple calculations using the
+microphysics in MESA.  It is not (yet) particularly general, but has
+been useful for me.
+** Usage
+#+BEGIN_EXAMPLE
+make
+./micro
+#+END_EXAMPLE
+** Example
+The example file ignition-CO.f calculates the ignition curve
+(eps_nuc_heat = eps_neu_cool) for a 50/50 C/O mixture.
+** MESA version
+This currently works with r6794.
+** Author
+Josiah Schwab <jschwab@gmail.com>
