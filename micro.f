@@ -35,7 +35,7 @@ program mesa_micro
   ! variables needed for set up
   integer :: eos_handle, kap_handle, net_handle
   type (Net_General_Info), pointer  :: g
-  integer, pointer, dimension(:) :: net_iso, chem_id
+  integer, pointer, dimension(:) :: which_rates, net_iso, chem_id
 
   ! variables needed for composition
   real(dp) :: X, Z, Y, abar, zbar, z2bar, ye
@@ -45,7 +45,7 @@ program mesa_micro
   ! variables needed for eos
   real(dp) :: Rho, T, log10Rho, log10T
   real(dp), dimension(num_eos_basic_results) :: res, d_dlnd, d_dlnT, d_dabar, d_dzbar
-
+  
   ! variables needed for neu
   real(dp) :: log10_Tlim = 7.5
   logical :: flags(num_neu_types)  = .true.
@@ -53,15 +53,18 @@ program mesa_micro
   real(dp) :: sources(num_neu_types, num_neu_rvs)
 
   ! variables needed for net
-  !character(len=256) :: net_name = "approx21.net"
-  character(len=256) :: net_name = "ecapture.net"
-
+  character(len=256) :: net_file = "approx21.net"
+  
   type (Net_Info), target :: net_info_target
   type (Net_Info), pointer :: net_info_pointer
 
-  integer :: lwork
-  real(dp), dimension(:,:), pointer :: eps_nuc_categories
+  integer :: which_rates_choice, species, num_reactions, lwork
+  real(dp), dimension(num_categories) :: eps_nuc_categories
   real(dp), pointer :: work(:), rate_factors(:)
+  
+  ! integer :: ierr, handle, 
+  ! integer, pointer :: which_rates(:), chem_id(:), net_iso(:)
+
                   
   real(dp) :: weak_rate_factor, eta, d_eta_dlnT, d_eta_dlnRho, eps_neu_total
   real(dp), dimension(:), pointer ::  &
@@ -75,9 +78,9 @@ program mesa_micro
 
   integer :: screening_mode = extended_screening
 
-  real(dp), dimension(:,:), pointer :: rate_screened, rate_raw
-  real(dp) :: max_old_rate_div_new_rate
-  integer :: num_rates_reduced
+  ! !real(dp), dimension(:), pointer :: rate_screened, rate_raw
+  ! real(dp) :: max_old_rate_div_new_rate
+  ! integer :: num_rates_reduced
 
   ! for error handling
   integer :: ierr
@@ -102,12 +105,12 @@ program mesa_micro
   end if
 
   ! set up rates
-  call rates_init('reactions.list', '', '', ierr)
+  call rates_init('reactions.list', '', 'rate_tables', .false., .false., '', '', '', ierr)
   if (ierr /= 0) then
      write(*,*) 'rates_init failed'
-     stop 1
+     return
   end if
-
+         
   ! set up net
   call net_init(ierr)
   if (ierr /= 0) then
@@ -122,19 +125,21 @@ program mesa_micro
   call setup_kap(kap_handle)
 
   ! set up net
-  call setup_net(net_name, net_handle, g, chem_id, net_iso)
+  which_rates_choice = rates_NACRE_if_available
+  call setup_net( &
+       net_file, net_handle, which_rates, which_rates_choice, &
+       species, chem_id, net_iso, num_reactions, lwork, ierr)
+  if (ierr /= 0) call mesa_error(__FILE__,__LINE__)
+
+  ! call setup_net(net_name, net_handle, g, chem_id, net_iso)
 
   ! now that we know the net, allocate for other things
-  allocate(xa(g% num_isos), dabar_dx(g% num_isos), dzbar_dx(g% num_isos), dmc_dx(g% num_isos))
+  allocate(xa(species), dabar_dx(species), dzbar_dx(species), dmc_dx(species))
 
-  lwork = net_work_size(net_handle, ierr)
   net_info_pointer => net_info_target
 
   allocate(work(lwork),  &
-       rate_factors(g% num_reactions), &
-       eps_nuc_categories(num_rvs, num_categories),  &
-       rate_screened(num_rvs, g% num_reactions), & 
-       rate_raw(num_rvs, g% num_reactions), &
+       rate_factors(num_reactions), &
        stat=ierr)
   if (ierr /= 0) stop 1
 
@@ -142,9 +147,9 @@ program mesa_micro
   weak_rate_factor = 1
 
   allocate( &
-       d_eps_nuc_dx(g% num_isos),  &
-       dxdt(g% num_isos), d_dxdt_dRho(g% num_isos), d_dxdt_dT(g% num_isos), &
-       d_dxdt_dx(g% num_isos, g% num_isos))
+       d_eps_nuc_dx(species),  &
+       dxdt(species), d_dxdt_dRho(species), d_dxdt_dT(species), &
+       d_dxdt_dx(species, species))
   if (ierr /= 0) stop 1
 
   ! call your special function
@@ -164,15 +169,13 @@ program mesa_micro
 
 contains
 
-  !  include 'sample.f'
+  ! include 'sample.f'
   !  include 'degen-CO.f'
-  ! include 'mesa3-weak.f'
   ! include 'capture-Ne.f'
-  ! include 'mesa3-weak-benchmark.f'
   ! include 'eps-weak.f'
   ! include 'ignition-r6596.f'
   ! include 'runaway.f'
-  ! include 'list-gaps.f'
-  incude 'lifetime.f'
+  ! include 'lifetime.f'
+  include 'ignition.f'
   
 end program mesa_micro
