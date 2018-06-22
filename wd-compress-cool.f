@@ -70,8 +70,8 @@ subroutine do_micro
        g% num_isos, chem_id, xa, xh, xhe, abar, zbar, z2bar, ye,  &
        mass_correction, sumx, dabar_dx, dzbar_dx, dmc_dx)
 
-  mdot = 1e-6
-  outfile = "CO-1em6.dat"
+  mdot = 3e-8
+  outfile = "CO-3em8.dat"
   open(unit=funit, file=trim(outfile))
 
   do i = 0, 20 * 5

@@ -20,16 +20,16 @@ subroutine do_micro
        g% num_isos, chem_id, xa, xh, xhe, abar, zbar, z2bar, ye,  &
        mass_correction, sumx, dabar_dx, dzbar_dx, dmc_dx)
   
-  outfile = "ignition-CO.dat"
+  outfile = "tburn-CO-3e7s.dat"
   open(unit=funit, file=trim(outfile))
 
-  do i = 0, 100
+  do i = 0, 200
 
-     log10Rho = 5 + 0.05 * i
+     log10Rho = 0 + 0.05 * i
      Rho = exp10_cr(log10Rho)
 
      logTm = 7.5
-     logTp = 9.0
+     logTp = 9.5
      logT0 = sqrt(logTm * logTp)
 
      do j = 1, max_iter
@@ -63,9 +63,11 @@ subroutine do_micro
              loss, sources, ierr)
 
         lhs = eps_nuc
+        lhs = 3e7
         dlhs_dT = d_eps_nuc_dT
 
         rhs = loss(ineu)
+        rhs = res(i_Cp) * T / eps_nuc 
         drhs_dT = loss(idneu_dT)
 
         ! just do bisection

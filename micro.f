@@ -53,15 +53,16 @@ program mesa_micro
   real(dp) :: sources(num_neu_types, num_neu_rvs)
 
   ! variables needed for net
-  character(len=256) :: net_name = "approx21.net"
+  !character(len=256) :: net_name = "approx21.net"
+  character(len=256) :: net_name = "ecapture.net"
 
   type (Net_Info), target :: net_info_target
   type (Net_Info), pointer :: net_info_pointer
 
   integer :: lwork
-  real(dp), dimension(:), pointer :: eps_nuc_categories
+  real(dp), dimension(:,:), pointer :: eps_nuc_categories
   real(dp), pointer :: work(:), rate_factors(:)
-
+                  
   real(dp) :: weak_rate_factor, eta, d_eta_dlnT, d_eta_dlnRho, eps_neu_total
   real(dp), dimension(:), pointer ::  &
        d_eps_nuc_dx, dxdt, d_dxdt_dRho, d_dxdt_dT
@@ -73,6 +74,10 @@ program mesa_micro
   real(dp) :: theta_e = theta_e_for_graboske_et_al
 
   integer :: screening_mode = extended_screening
+
+  real(dp), dimension(:,:), pointer :: rate_screened, rate_raw
+  real(dp) :: max_old_rate_div_new_rate
+  integer :: num_rates_reduced
 
   ! for error handling
   integer :: ierr
@@ -127,7 +132,9 @@ program mesa_micro
 
   allocate(work(lwork),  &
        rate_factors(g% num_reactions), &
-       eps_nuc_categories(num_categories),  &
+       eps_nuc_categories(num_rvs, num_categories),  &
+       rate_screened(num_rvs, g% num_reactions), & 
+       rate_raw(num_rvs, g% num_reactions), &
        stat=ierr)
   if (ierr /= 0) stop 1
 
@@ -158,6 +165,14 @@ program mesa_micro
 contains
 
   !  include 'sample.f'
-  include 'ignition-CO.f'
-
+  !  include 'degen-CO.f'
+  ! include 'mesa3-weak.f'
+  ! include 'capture-Ne.f'
+  ! include 'mesa3-weak-benchmark.f'
+  ! include 'eps-weak.f'
+  ! include 'ignition-r6596.f'
+  ! include 'runaway.f'
+  ! include 'list-gaps.f'
+  incude 'lifetime.f'
+  
 end program mesa_micro
