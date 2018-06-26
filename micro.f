@@ -53,7 +53,10 @@ program mesa_micro
   real(dp) :: sources(num_neu_types, num_neu_rvs)
 
   ! variables needed for net
-  character(len=256) :: net_file = "approx21.net"
+  !character(len=256) :: net_file = "approx21.net"
+  character(len=256) :: net_file = "co_burn.net"
+  !character(len=256) :: net_file = "mesa_45.net"
+  
   
   type (Net_Info), target :: net_info_target
   type (Net_Info), pointer :: net_info_pointer
@@ -126,6 +129,7 @@ program mesa_micro
 
   ! set up net
   which_rates_choice = rates_NACRE_if_available
+
   call setup_net( &
        net_file, net_handle, which_rates, which_rates_choice, &
        species, chem_id, net_iso, num_reactions, lwork, ierr)

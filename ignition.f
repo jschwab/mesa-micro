@@ -8,20 +8,25 @@ subroutine do_micro
   integer, parameter :: max_iter = 32
   
   character(len=256) :: outfile
-  integer :: funit = 13
+  integer :: funit
+
+  real(dp) :: xc12
 
   ! define the composition
 
+  read(*,*) xc12
+  !xc12 = (12d0 / (12d0 + 9 * 16d0))
+  
   xa = 0
-  xa(net_iso(io16)) = 0.5
-  xa(net_iso(ic12)) = 0.5
+  xa(net_iso(io16)) = 1.0-xc12
+  xa(net_iso(ic12)) = xc12
 
   call composition_info( &
        species, chem_id, xa, xh, xhe, z, abar, zbar, z2bar, &
        ye, mass_correction, sumx, dabar_dx, dzbar_dx, dmc_dx)
   
-  outfile = "ignition-CO.dat"
-  open(unit=funit, file=trim(outfile))
+  write(outfile, '(A, F05.3, A)') "ignition-XC-", xc12, "-CF88.dat"
+  open(newunit=funit, file=trim(outfile))
 
   do i = 0, 100
 
@@ -47,6 +52,8 @@ subroutine do_micro
         d_eta_dlnRho = d_dlnd(i_eta)
         d_eta_dlnT = d_dlnT(i_eta)
 
+        ! call eval_G05_epsnuc_CC(T, Rho, xc12, eps_nuc, d_eps_nuc_dT, d_eps_nuc_dRho)        
+        
         call net_get( &
              net_handle, .false., net_info_pointer, species, num_reactions, &
              xa, T, log10T, Rho, log10Rho, & 

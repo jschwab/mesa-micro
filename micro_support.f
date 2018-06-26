@@ -129,6 +129,7 @@ contains
        species, chem_id, net_iso, num_reactions, lwork, ierr)
     use net_lib
     use rates_def, only: rates_reaction_id_max
+    use rates_lib, only: set_which_rate_1212
 
     character (len=*), intent(in) :: net_file
     integer, intent(in) :: which_rates_choice
@@ -164,6 +165,8 @@ contains
 
     allocate(which_rates(rates_reaction_id_max))
     which_rates(:) = which_rates_choice
+
+    call set_which_rate_1212(which_rates, 1)
 
     call net_set_which_rates(handle, which_rates, ierr)
     if (ierr /= 0) then
